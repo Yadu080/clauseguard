@@ -47,7 +47,8 @@ DATEISH = (
     + r"|noon|midnight|today|tomorrow|tonight)"
 )
 # A following number, optionally preceded by a currency sign.
-NUMBER_AHEAD = r"(?=\s+(?:rs\.?\s?|₹\s?|\$\s?|inr\s)?\d)"
+NUMBER_AHEAD = (r"(?=\s+(?:rs\.?\s?|₹\s?|\$\s?|inr\s)?(?:\d|(?:one|two|three|four|five|six|seven|eight|"
+                r"nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b))")
 
 # Things that look like negation but express a bound or an addition instead:
 # 'no more than', 'not later than', 'not only', 'must not exceed'.
@@ -167,6 +168,17 @@ IMPERATIVE_VERBS = {
     "verify", "enroll", "enrol", "renew", "clear", "produce", "present", "seek",
     "get", "check", "notify", "remember", "use", "display", "show", "leave",
 }
+# A sentence starting with one of these may open with an adverbial clause, so the
+# imperative verb can follow the first comma ("If you are absent, inform the HOD").
+FRONTED_CLAUSE_STARTERS = {
+    "if", "when", "whenever", "unless", "before", "after", "once", "upon", "while",
+    "during", "for", "in", "on", "at", "in case", "where", "wherever",
+}
+
+# Exact conversions between duration units, in minutes. Months and years are left
+# out on purpose: '1 month' is not a fixed number of days.
+DURATION_MINUTES = {"minute": 1, "hour": 60, "day": 1440, "week": 10080}
+
 # If one of the next two words is one of these, the first word is a noun, not an
 # imperative ("Use of phones is prohibited", "Leave applications must be ...").
 NOT_IMPERATIVE_NEXT = {

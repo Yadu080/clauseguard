@@ -57,3 +57,8 @@ def test_month_may_is_not_a_modal():
 
 def test_should_not_exceed_is_recommendation():
     assert modal_labels("The report should not exceed 40 pages.") == ["RECOMMENDATION"]
+
+
+def test_imperative_after_fronted_clause():
+    assert modal_labels("If you are absent, inform the HOD.") == ["OBLIGATION"]
+    assert drift_categories("If you are absent, inform the HOD.", "Inform the HOD if you are absent.") == set()

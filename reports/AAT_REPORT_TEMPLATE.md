@@ -249,7 +249,14 @@ REVIEW, (b) same value with different unit → HIGH, (c) same value with differe
 - **Value normalisation:** commas and Indian digit grouping (1,00,000), *lakh/crore/k/million*,
   currency symbols and names, rates (*Rs. 10 per day*), 12/24-hour times, *noon/midnight*, dates
   in five formats. Numeric dates are normalised only when the day/month order is unambiguous.
-- **Testing:** 77 pytest tests including a headless Streamlit run (`streamlit.testing`).
+- **Passage mode** (`src/passage.py`): rule-based sentence segmentation (abbreviation list,
+  bullets, line breaks); alignment by the mean of Jaccard overlap and overlap coefficient of
+  content-word stems (threshold 0.3), where each sentence links to its best partner and linked
+  sentences form groups (handles merged and split sentences); unlinked sentences are reported as
+  dropped/added (MEDIUM when they contain markers or values, else REVIEW).
+- **Interfaces:** Streamlit UI (Compare, Passage, Batch audit, Benchmark, Method tabs), CLI
+  (`python -m src`), JSON and Markdown export.
+- **Testing:** 94 pytest tests including headless runs of the Streamlit tabs (`streamlit.testing`).
 
 ## 12. Dataset Construction and Annotation
 
@@ -280,6 +287,9 @@ REVIEW, (b) same value with different unit → HIGH, (c) same value with differe
   4. Dev re-evaluated: P 0.981, R 0.963, F1 0.972.
   5. Rules frozen; unit tests written and passed; test split evaluated once.
   6. Test errors were recorded, not fixed.
+  7. Version 1.1.0 added parsing improvements found with new stress-test sentences written
+     outside the benchmark, plus passage mode. Re-running the benchmark gave identical
+     pair-level and category-level results (one dev pair gained a REVIEW note).
 
 ## 14. Evaluation Metrics
 
@@ -301,7 +311,8 @@ category is counted at most once per pair; micro-averages sum TP/FP/FN across ca
 
 ## 15. Results and Discussion
 
-**[EXECUTED]** Results from `reports/evaluation_results.json` (engine 1.0.0).
+**[EXECUTED]** Results from `reports/evaluation_results.json` (engines 1.0.0 and 1.1.0 give the
+same pair-level and category-level numbers).
 
 **Pair level**
 
@@ -356,7 +367,9 @@ category is counted at most once per pair; micro-averages sum TP/FP/FN across ca
 - Small lexicons: synonyms, antonyms and paraphrases outside them cause false alarms or misses.
 - No modelling of conjunctions, ranges, unit conversion or relative dates.
 - Ambiguous words (*can*, *may*, *will*) are mapped to one reading.
-- Designed for single sentences; long passages are not aligned.
+- Passage mode aligns whole sentences only; clause-level alignment and discourse structure are
+  not modelled, and passage mode has not been evaluated on a labelled dataset. **[DESIGNED]**
+  A passage-level benchmark (e.g. real circulars and their summaries) would be needed.
 - The benchmark is small, synthetic and annotated by the rule author; reported numbers do not
   estimate real-world performance.
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from .extractors import content_stems, phrase_around, stem
-from .lexicon import VERBAL_NEGATION_LABELS
+from .lexicon import DURATION_MINUTES, VERBAL_NEGATION_LABELS
 from .schemas import Evidence, Finding, Marker, NumericValue, SentenceAnalysis, Severity
 
 H, M, R = Severity.HIGH, Severity.MEDIUM, Severity.REVIEW
@@ -454,6 +454,22 @@ def _without_year(key: str) -> str:
     return key[:len("date:")] + key[len("date:????"):] if key.startswith("date:") else key
 
 
+def _date_readings(key: str) -> set[str]:
+    """Both possible readings of an ambiguous numeric date key 'date_raw:5/6/2025'."""
+    if not key.startswith("date_raw:"):
+        return {key}
+    a, b, year = key[len("date_raw:"):].split("/")
+    return {f"date:{int(year):04d}-{int(b):02d}-{int(a):02d}",   # day first
+            f"date:{int(year):04d}-{int(a):02d}-{int(b):02d}"}   # month first
+
+
+def _minutes(n: NumericValue) -> float | None:
+    """Duration in minutes when the unit converts exactly ('2 weeks' -> 20160)."""
+    if n.kind != "number" or n.value is None or n.unit not in DURATION_MINUTES:
+        return None
+    return n.value * DURATION_MINUTES[n.unit]
+
+
 def check_numbers(o: SentenceAnalysis, r: SentenceAnalysis) -> list[Finding]:
     removed, added = _multiset_diff(o.numbers, r.numbers, key=lambda n: n.normalized)
     findings: list[Finding] = []
@@ -466,6 +482,27 @@ def check_numbers(o: SentenceAnalysis, r: SentenceAnalysis) -> list[Finding]:
                 added.remove(b)
                 yield a, b
 
+    # (a0) An ambiguous numeric date ('01/02/2025') with one reading that matches.
+    for a, b in take(lambda a, b: a.kind == b.kind == "date" and a.normalized != b.normalized
+                     and "date_raw:" in (a.normalized + b.normalized)
+                     and bool(_date_readings(a.normalized) & _date_readings(b.normalized))):
+        raw = a if a.normalized.startswith("date_raw:") else b
+        findings.append(_finding(
+            "NUM-DATE-AMBIGUOUS", "numeric", R,
+            f"'{raw.text}' can be read day-first or month-first; one reading matches "
+            f"'{(b if raw is a else a).text}'.",
+            "Numeric dates such as 01/02/2025 are not normalised automatically because the "
+            "day/month order is ambiguous. Confirm which convention the source uses.",
+            _ev(a), _ev(b)))
+    # (a1) The same duration in different units ('2 weeks' -> '14 days').
+    for a, b in take(lambda a, b: _minutes(a) is not None and _minutes(a) == _minutes(b)
+                     and a.unit != b.unit):
+        findings.append(_finding(
+            "NUM-EQUIVALENT", "numeric", R,
+            f"{a.text!r} and {b.text!r} describe the same duration.",
+            "The units convert exactly (minutes, hours, days, weeks), so the value is "
+            "probably unchanged; flagged only so that a reader can confirm.",
+            _ev(a), _ev(b)))
     # (a) Same date, but the year is given in only one sentence.
     for a, b in take(lambda a, b: a.kind == b.kind == "date" and "????" in (a.normalized + b.normalized)
                      and _without_year(a.normalized) == _without_year(b.normalized)):
@@ -526,8 +563,17 @@ def check_numbers(o: SentenceAnalysis, r: SentenceAnalysis) -> list[Finding]:
 LOW_OVERLAP_THRESHOLD = 0.25
 
 
+_NOT_CONTENT = {"am", "pm", "hr", "hrs", "a.m", "p.m"}
+
+
+def _word_stems(analysis: SentenceAnalysis) -> set[str]:
+    """Content-word stems without numbers or time abbreviations; values are
+    compared by check_numbers, so they should not count as shared vocabulary."""
+    return {w for w in content_stems(analysis.tokens) if w[0].isalpha() and w not in _NOT_CONTENT}
+
+
 def check_coverage(o: SentenceAnalysis, r: SentenceAnalysis) -> list[Finding]:
-    a, b = content_stems(o.tokens), content_stems(r.tokens)
+    a, b = _word_stems(o), _word_stems(r)
     if len(a) < 3 or len(b) < 3:
         return []
     overlap = len(a & b) / len(a | b)

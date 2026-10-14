@@ -40,7 +40,8 @@ def test_unit_change_detected():
     ("A fine of Rs. 10 per day.", ["currency:INR/day:10"]),
     ("A CGPA of 7.25 is needed.", ["number:7.25"]),
     ("At least 82.5% marks.", ["percent:82.5"]),
-    ("Seventy five percent is not 75 per cent.", ["percent:75"]),
+    ("Seventy five percent equals 75 per cent.", ["percent:75", "percent:75"]),
+    ("At least seventy-five percent attendance.", ["percent:75"]),
 ])
 def test_currency_and_decimal_parsing(text, expected):
     assert keys(text) == expected
@@ -66,8 +67,23 @@ def test_equivalent_formats_match():
 
 
 def test_ambiguous_numeric_date_is_not_assumed_equal():
-    # 05/06/2025 may be 5 June or May 6; it must not silently match '5 June 2025'.
-    assert rule_ids("Due on 05/06/2025.", "Due on 5 June 2025.") == {"NUM-CHANGED"}
+    # 05/06/2025 may be 5 June or May 6: one reading matches, so it is only a REVIEW
+    # note, never silently treated as equal.
+    assert severities("Due on 05/06/2025.", "Due on 5 June 2025.") == {"NUM-DATE-AMBIGUOUS": "REVIEW"}
+    # Neither reading matches 7 June, so it is a real change.
+    assert rule_ids("Due on 05/06/2025.", "Due on 7 June 2025.") == {"NUM-CHANGED"}
+
+
+def test_equivalent_durations_are_review_only():
+    assert severities("Submit within 2 weeks.", "Submit within 14 days.") == {"NUM-EQUIVALENT": "REVIEW"}
+    assert severities("Reply within 48 hours.", "Reply within 2 days.") == {"NUM-EQUIVALENT": "REVIEW"}
+    # 'working days' are not calendar days, so no conversion is assumed.
+    assert "NUM-EQUIVALENT" not in rule_ids("Reply within 1 week.", "Reply within 7 working days.")
+
+
+def test_military_time():
+    assert keys("Report at 0900 hrs.") == ["time:09:00"]
+    assert rule_ids("Report at 0900 hrs.", "Report at 9 am.") == set()
 
 
 def test_year_only_in_one_sentence_is_review():

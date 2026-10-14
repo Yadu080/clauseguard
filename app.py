@@ -15,13 +15,18 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from scripts.evaluate import prf
 from src import ENGINE_VERSION, AnalysisResult, analyze
+from src.export import passage_to_markdown, result_to_markdown
 from src.highlighting import highlight, missing_in_rewrite
+from src.passage import PassageResult, analyze_passage
 from src.rules import SEVERITY_POLICY
-from src.schemas import CATEGORIES, Evidence, Finding
+from src.schemas import CATEGORIES, Evidence, Finding, Status
 
 ROOT = Path(__file__).resolve().parent
 EXAMPLES = json.loads((ROOT / "data" / "examples.json").read_text(encoding="utf-8"))
+EXAMPLE_BY_ID = {ex["id"]: ex for ex in EXAMPLES}
+PASSAGE_EXAMPLE = json.loads((ROOT / "data" / "passage_example.json").read_text(encoding="utf-8"))
 RESULTS_PATH = ROOT / "reports" / "evaluation_results.json"
 
 CATEGORY_INFO = {
@@ -121,16 +126,16 @@ header[data-testid="stHeader"] { background: transparent; height: 0; }
 .stSelectbox label p, .stRadio label p { font-size: 0.85rem; color: var(--ink-2); font-weight: 500; }
 
 /* ---- buttons */
-.stButton > button, .stDownloadButton > button { border-radius: 8px; font-weight: 500; min-height: 42px;
+.stButton button, .stDownloadButton button { border-radius: 8px; font-weight: 500; min-height: 42px;
   padding: 0 1.15rem; transition: background 160ms var(--ease), border-color 160ms var(--ease), transform 120ms var(--ease); }
-.stButton > button[kind="primary"] { background: var(--ink); border: 1px solid var(--ink); color: var(--bg); }
-.stButton > button[kind="primary"]:hover { background: oklch(0.32 0.014 355); border-color: oklch(0.32 0.014 355); }
-.stButton > button[kind="secondary"], .stDownloadButton > button { background: var(--bg); color: var(--ink);
+.stButton button[kind="primary"] { background: var(--ink); border: 1px solid var(--ink); color: var(--bg); }
+.stButton button[kind="primary"]:hover { background: oklch(0.32 0.014 355); border-color: oklch(0.32 0.014 355); }
+.stButton button[kind="secondary"], .stDownloadButton button { background: var(--bg); color: var(--ink);
   border: 1px solid var(--line-strong); }
-.stButton > button[kind="secondary"]:hover, .stDownloadButton > button:hover { border-color: var(--ink); color: var(--ink); background: var(--surface); }
-.stButton > button:active, .stDownloadButton > button:active { transform: translateY(1px); }
-.stButton > button:focus-visible, .stDownloadButton > button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.stButton > button p, .stDownloadButton > button p { font-weight: 500; }
+.stButton button[kind="secondary"]:hover, .stDownloadButton button:hover { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+.stButton button:active, .stDownloadButton button:active { transform: translateY(1px); }
+.stButton button:focus-visible, .stDownloadButton button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.stButton button p, .stDownloadButton button p { font-weight: 500; }
 
 /* ---- status */
 .cg-status { display: flex; gap: 0.9rem; align-items: flex-start; padding: 1rem 1.15rem; border-radius: var(--radius);
@@ -220,6 +225,9 @@ mark.cg-flag-review { box-shadow: inset 0 0 0 1.5px var(--review); background: v
 .cg-ref-row span { color: var(--ink-2); font-size: 0.92rem; }
 .cg-ref-row code { font: 400 0.8rem/1.5 var(--mono); color: var(--ink-2); background: none; padding: 0; }
 @media (max-width: 760px) { .cg-ref-row { grid-template-columns: 1fr; gap: 0.25rem; } }
+.cg-intro code, .cg-prov code { font: 400 0.85em var(--mono); background: var(--surface-2); color: var(--ink);
+  padding: 0.08rem 0.3rem; border-radius: 4px; }
+[data-testid="stHeaderActionElements"] { display: none; }
 .cg-intro { font-size: 1rem; color: var(--ink-2); max-width: 70ch; margin: 1.5rem 0 0; line-height: 1.6; }
 
 /* ---- benchmark */
@@ -269,6 +277,58 @@ mark.cg-flag-review { box-shadow: inset 0 0 0 1.5px var(--review); background: v
 .cg-prose { max-width: 75ch; color: var(--ink-2); line-height: 1.65; font-size: 0.95rem; }
 .cg-prose li { margin: 0.3rem 0; }
 
+/* ---- example chips (st.pills) */
+[data-testid="stPills"] { margin-bottom: 0.4rem; }
+[data-testid="stPills"] button { border-radius: 999px; border: 1px solid var(--line-strong); background: var(--bg);
+  color: var(--ink-2); font-size: 0.84rem; min-height: 32px; padding: 0 0.8rem;
+  transition: border-color 160ms var(--ease), background 160ms var(--ease), color 160ms var(--ease); }
+[data-testid="stPills"] button:hover { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+[data-testid="stPills"] button[kind="pillsActive"], [data-testid="stPills"] button[data-testid="stBaseButton-pillsActive"] {
+  background: var(--ink); border-color: var(--ink); color: var(--bg); }
+[data-testid="stPills"] button p { font-size: 0.84rem; }
+
+/* ---- segmented control */
+[data-testid="stButtonGroup"] button { min-height: 34px; font-size: 0.85rem; }
+
+/* ---- expanders */
+[data-testid="stExpander"] details { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: var(--bg); }
+[data-testid="stExpander"] summary { padding: 0.85rem 0.25rem; }
+[data-testid="stExpander"] summary:hover { background: transparent; }
+[data-testid="stExpander"] summary:hover p { color: var(--ink-2); }
+[data-testid="stExpanderDetails"] { padding: 0.1rem 0 1.4rem; }
+[data-testid="stExpander"] summary p { font-size: 0.93rem; color: var(--ink); }
+[data-testid="stExpander"] summary strong { font-weight: 600; }
+
+/* ---- uploader + dataframe */
+[data-testid="stFileUploaderDropzone"] { border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface); }
+[data-testid="stDataFrame"] { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+
+/* ---- passage alignment map */
+.cg-map { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cg-map-head, .cg-map-row { display: grid; grid-template-columns: 2.2rem 8.5rem 1fr 1.5rem 1fr; gap: 0.9rem; padding: 0.75rem 1.1rem; }
+.cg-map-head { background: var(--surface); font-size: 0.78rem; color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line); }
+.cg-map-row + .cg-map-row { border-top: 1px solid var(--line); }
+.cg-map-n { font: 500 0.85rem/1.6 var(--mono); color: var(--ink-3); }
+.cg-map-kind { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+.cg-map-o p, .cg-map-r p { margin: 0 0 0.25rem; font-size: 0.9rem; line-height: 1.5; color: var(--ink); }
+.cg-map-o p.none, .cg-map-r p.none { color: var(--ink-3); }
+.cg-map-arrow { color: var(--ink-3); padding-top: 0.1rem; }
+.cg-kindtag { font: 500 0.72rem/1 var(--mono); padding: 0.28rem 0.45rem; border-radius: 5px; background: var(--surface-2); color: var(--ink-2); }
+.cg-kindtag.k-dropped, .cg-kindtag.k-added { background: var(--medium-bg); color: var(--medium); }
+.cg-pill.sev-none { color: var(--ink-3); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+@media (max-width: 760px) {
+  .cg-map-head { display: none; }
+  .cg-map-row { grid-template-columns: 2rem 1fr; }
+  .cg-map-kind { flex-direction: row; }
+  .cg-map-o, .cg-map-r, .cg-map-arrow { grid-column: 2; }
+  .cg-map-arrow { padding: 0; transform: rotate(90deg); width: fit-content; }
+}
+
+/* ---- footer */
+.cg-foot { margin-top: 3.5rem; padding-top: 1.1rem; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap;
+  gap: 0.5rem 1.5rem; justify-content: space-between; font-size: 0.8rem; color: var(--ink-3); }
+.cg-foot code { font: 400 0.78rem var(--mono); background: none; color: var(--ink-2); padding: 0; }
+
 @keyframes cg-in { from { opacity: 0.001; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .cg-finding { animation: none; } * { transition: none !important; } }
 </style>
@@ -310,12 +370,11 @@ def section(title: str, hint: str = "") -> None:
     put(f'<div class="cg-section-h"><h3>{e(title)}</h3><p>{e(hint)}</p></div>')
 
 
-def status_block(result: AnalysisResult) -> str:
-    counts = result.severity_counts()
+def status_block(status: str, counts: dict[str, int]) -> str:
     top = next((s for s in ("HIGH", "MEDIUM", "REVIEW") if counts[s]), None)
     detail = {
         "HIGH": "At least one warning concerns negation, a condition, a reversal or a changed value.",
-        "MEDIUM": "Warnings concern obligation strength, scope or bounds.",
+        "MEDIUM": "Warnings concern obligation strength, scope, bounds or a dropped sentence.",
         "REVIEW": "Only low-confidence observations; these are often harmless paraphrases.",
         None: "None of the configured checks fired. This does not prove the meaning is preserved.",
     }[top]
@@ -323,7 +382,7 @@ def status_block(result: AnalysisResult) -> str:
     return f"""
     <div class="cg-status {cls}" role="status">
       <div class="dot"></div>
-      <div><strong>{e(result.status.value)}</strong><span>{e(detail)}</span>
+      <div><strong>{e(status)}</strong><span>{e(detail)}</span>
         <div class="cg-counts"><span><i>{counts['HIGH']}</i> high</span><span><i>{counts['MEDIUM']}</i> medium</span>
         <span><i>{counts['REVIEW']}</i> review</span></div>
       </div>
@@ -386,6 +445,10 @@ def finding_html(f: Finding, i: int) -> str:
     </article>"""
 
 
+def findings_html(findings: list[Finding]) -> str:
+    return '<div class="cg-findings">' + "".join(finding_html(f, i) for i, f in enumerate(findings)) + "</div>"
+
+
 def markers_frame(result: AnalysisResult) -> pd.DataFrame:
     rows = []
     for side, a in (("original", result.original_analysis), ("rewritten", result.rewritten_analysis)):
@@ -414,28 +477,62 @@ def empty_state() -> None:
 
 # --------------------------------------------------------------------------- compare tab
 
+def _example_label(ex_id: str) -> str:
+    ex = EXAMPLE_BY_ID[ex_id]
+    return f"{ex['id']} · {ex['title']}"
+
+
+def _run_compare() -> None:
+    o, r = st.session_state["original"], st.session_state["rewritten"]
+    st.session_state["result"] = analyze(o, r)
+    st.session_state["analysed_pair"] = (o, r)
+
+
 def _load_example() -> None:
-    choice = st.session_state.get("example")
-    ex = next((x for x in EXAMPLES if _example_label(x) == choice), None)
-    if ex is None:
+    ex = EXAMPLE_BY_ID.get(st.session_state.get("example"))
+    if ex is None:  # the chip was toggled off
         return
     st.session_state["original"], st.session_state["rewritten"] = ex["original"], ex["rewritten"]
-    st.session_state["result"] = analyze(ex["original"], ex["rewritten"])
-    st.session_state["analysed_pair"] = (ex["original"], ex["rewritten"])
+    _run_compare()
 
 
-def _example_label(ex: dict) -> str:
-    return f"{ex['id']} — {ex['title']}"
+def _swap() -> None:
+    st.session_state["original"], st.session_state["rewritten"] = (
+        st.session_state["rewritten"], st.session_state["original"])
+    st.session_state["example"] = None
+    if st.session_state.get("result") is not None:
+        _run_compare()
+
+
+def _clear() -> None:
+    st.session_state["original"] = st.session_state["rewritten"] = ""
+    st.session_state["example"] = None
+    st.session_state["result"] = None
+
+
+def render_result(result: AnalysisResult, *, show_status: bool = True) -> None:
+    """Status, side-by-side highlighting, warnings and extracted markers for one pair."""
+    if show_status:
+        put(status_block(result.status.value, result.severity_counts()))
+    if result.original_analysis is not None:
+        section("Side by side", "Markers detected in each sentence")
+        put(comparison(result))
+    n = len(result.findings)
+    section("Warnings", f"{n} finding{'s' if n != 1 else ''}, most severe first")
+    if result.findings:
+        put(findings_html(result.findings))
+    else:
+        put('<div class="cg-none">No configured check fired for this pair. The sentences may still differ in ways '
+            'ClauseGuard does not check — see “Method & limits”.</div>')
 
 
 def compare_tab() -> None:
     st.session_state.setdefault("original", "")
     st.session_state.setdefault("rewritten", "")
 
-    pick, _ = st.columns([2, 3])
-    with pick:
-        st.selectbox("Load an example", [_example_label(x) for x in EXAMPLES], index=None,
-                     placeholder="Choose an illustrative example…", key="example", on_change=_load_example)
+    put('<div class="cg-field-label"><b>Examples</b><span>run through the live engine when selected</span></div>')
+    st.pills("Examples", list(EXAMPLE_BY_ID), format_func=_example_label, key="example",
+             on_change=_load_example, label_visibility="collapsed")
 
     left, right = st.columns(2, gap="medium")
     with left:
@@ -447,42 +544,32 @@ def compare_tab() -> None:
         st.text_area("Rewritten sentence", key="rewritten", height=120, label_visibility="collapsed",
                      placeholder="e.g. Students below 75% attendance cannot appear for the examination.")
 
-    run_col, dl_col, _ = st.columns([1.3, 1.3, 4])
-    with run_col:
-        if st.button("Compare sentences", type="primary", width="stretch"):
-            st.session_state["result"] = analyze(st.session_state["original"], st.session_state["rewritten"])
-            st.session_state["analysed_pair"] = (st.session_state["original"], st.session_state["rewritten"])
-
     result: AnalysisResult | None = st.session_state.get("result")
-    with dl_col:
-        st.download_button("Download JSON", data=result.to_json() if result else "{}",
+    run, swap, clear, _, dl_json, dl_md = st.columns([1.5, 0.75, 0.75, 1.2, 1.1, 1.25])
+    with run:
+        st.button("Compare sentences", type="primary", width="stretch", on_click=_run_compare)
+    with swap:
+        st.button("Swap", width="stretch", on_click=_swap, help="Exchange the original and the rewrite")
+    with clear:
+        st.button("Clear", width="stretch", on_click=_clear)
+    with dl_json:
+        st.download_button("JSON", data=result.to_json() if result else "{}", icon=":material/download:",
                            file_name="clauseguard-analysis.json", mime="application/json",
                            disabled=result is None, width="stretch")
+    with dl_md:
+        st.download_button("Report", data=result_to_markdown(result) if result else "", icon=":material/description:",
+                           file_name="clauseguard-report.md", mime="text/markdown",
+                           disabled=result is None, width="stretch", help="Markdown report with all evidence")
 
     if result is None:
         empty_state()
         return
-
     if st.session_state.get("analysed_pair") != (st.session_state["original"], st.session_state["rewritten"]):
         put('<p class="cg-stale">The inputs changed since the last comparison. Select “Compare sentences” to refresh.</p>')
 
-    put(status_block(result))
-
-    if result.original_analysis is not None:
-        section("Side by side", "Markers detected in each sentence")
-        put(comparison(result))
-
-    n = len(result.findings)
-    section("Warnings", f"{n} finding{'s' if n != 1 else ''}, most severe first")
-    if result.findings:
-        put('<div class="cg-findings">' + "".join(finding_html(f, i) for i, f in enumerate(result.findings)) + "</div>")
-    else:
-        put('<div class="cg-none">No configured check fired for this pair. The sentences may still differ in ways '
-            'ClauseGuard does not check — see “Method & limits”.</div>')
-
+    render_result(result)
     if result.notes:
         put('<ul class="cg-notes">' + "".join(f"<li>{e(n)}</li>" for n in result.notes) + "</ul>")
-
     if result.original_analysis is not None:
         with st.expander("Extracted markers and values"):
             frame = markers_frame(result)
@@ -490,6 +577,231 @@ def compare_tab() -> None:
                 st.caption("Nothing was extracted from either sentence.")
             else:
                 st.dataframe(frame, hide_index=True, width="stretch")
+
+
+# --------------------------------------------------------------------------- passage tab
+
+KIND_LABEL = {"aligned": "Aligned", "merged": "Merged", "split": "Split", "regrouped": "Regrouped",
+              "dropped": "Dropped", "added": "Added"}
+
+
+def _load_passage_sample() -> None:
+    st.session_state["p_original"] = PASSAGE_EXAMPLE["original"]
+    st.session_state["p_rewritten"] = PASSAGE_EXAMPLE["rewritten"]
+    st.session_state["p_result"] = analyze_passage(PASSAGE_EXAMPLE["original"], PASSAGE_EXAMPLE["rewritten"])
+
+
+def _run_passage() -> None:
+    st.session_state["p_result"] = analyze_passage(st.session_state["p_original"], st.session_state["p_rewritten"])
+
+
+def _counts_text(findings: list[Finding]) -> str:
+    c = {s: sum(f.severity.value == s for f in findings) for s in ("HIGH", "MEDIUM", "REVIEW")}
+    parts = [f"{c[s]} {s.lower()}" for s in ("HIGH", "MEDIUM", "REVIEW") if c[s]]
+    return " · ".join(parts) if parts else "no warnings"
+
+
+def alignment_map(res: PassageResult) -> str:
+    rows = []
+    for n, seg in enumerate(res.segments, start=1):
+        top = next((s for s in ("HIGH", "MEDIUM", "REVIEW") if any(f.severity.value == s for f in seg.findings)), None)
+        sev = f'<span class="cg-pill sev-{top.lower()}">{top.title()}</span>' if top else '<span class="cg-pill sev-none">Clear</span>'
+        o = "".join(f"<p>{e(x)}</p>" for x in seg.original_sentences) or '<p class="none">—</p>'
+        r = "".join(f"<p>{e(x)}</p>" for x in seg.rewritten_sentences) or '<p class="none">—</p>'
+        rows.append(f'<div class="cg-map-row"><div class="cg-map-n">{n}</div>'
+                    f'<div class="cg-map-kind"><span class="cg-kindtag k-{seg.kind}">{KIND_LABEL[seg.kind]}</span>{sev}</div>'
+                    f'<div class="cg-map-o">{o}</div><div class="cg-map-arrow">→</div><div class="cg-map-r">{r}</div></div>')
+    return ('<div class="cg-map"><div class="cg-map-head"><div>#</div><div>Alignment</div><div>Original</div><div></div>'
+            '<div>Rewritten</div></div>' + "".join(rows) + "</div>")
+
+
+def passage_tab() -> None:
+    st.session_state.setdefault("p_original", "")
+    st.session_state.setdefault("p_rewritten", "")
+    put('<p class="cg-intro" style="margin-top:1rem">Paste a whole notice or paragraph and its rewrite. ClauseGuard '
+        'splits both into sentences, aligns them by shared vocabulary (including sentences that were merged or '
+        'split), compares every aligned group, and reports sentences that were dropped or added.</p>')
+    left, right = st.columns(2, gap="medium")
+    with left:
+        put('<div class="cg-field-label"><b>Original passage</b><span>one rule per sentence or line</span></div>')
+        st.text_area("Original passage", key="p_original", height=200, label_visibility="collapsed",
+                     placeholder="Paste the source notice, circular or policy section…")
+    with right:
+        put('<div class="cg-field-label"><b>Rewritten passage</b><span>summary or simplified version</span></div>')
+        st.text_area("Rewritten passage", key="p_rewritten", height=200, label_visibility="collapsed",
+                     placeholder="Paste the rewrite to audit…")
+
+    res: PassageResult | None = st.session_state.get("p_result")
+    run, sample, _, dl_json, dl_md = st.columns([1.5, 1.5, 1.2, 1.1, 1.25])
+    with run:
+        st.button("Compare passages", type="primary", width="stretch", on_click=_run_passage)
+    with sample:
+        st.button("Load sample passage", width="stretch", on_click=_load_passage_sample)
+    with dl_json:
+        st.download_button("JSON", data=res.to_json() if res else "{}", icon=":material/download:",
+                           file_name="clauseguard-passage.json", mime="application/json",
+                           disabled=res is None, width="stretch", key="p_dl_json")
+    with dl_md:
+        st.download_button("Report", data=passage_to_markdown(res) if res else "", icon=":material/description:",
+                           file_name="clauseguard-passage.md", mime="text/markdown",
+                           disabled=res is None, width="stretch", key="p_dl_md")
+    if res is None:
+        return
+
+    put(status_block(res.status.value, res.severity_counts()))
+    kinds = [s.kind for s in res.segments]
+    compared = sum(k not in ("dropped", "added") for k in kinds)
+    section("Alignment", f"{len(res.original_sentences)} original · {len(res.rewritten_sentences)} rewritten sentences · "
+            f"{compared} groups compared · {kinds.count('dropped')} dropped · {kinds.count('added')} added")
+    put(alignment_map(res))
+
+    section("Details by group", "Groups with HIGH or MEDIUM warnings are expanded")
+    for n, seg in enumerate(res.segments, start=1):
+        flagged = any(f.severity.value in ("HIGH", "MEDIUM") for f in seg.findings)
+        label = f"**{n} · {KIND_LABEL[seg.kind]}** — {_counts_text(seg.findings)}"
+        with st.expander(label, expanded=flagged):
+            if seg.result is not None:
+                if seg.result.original_analysis is not None:
+                    put(comparison(seg.result))
+                if seg.result.findings:
+                    put('<div style="height:.9rem"></div>' + findings_html(seg.result.findings))
+                else:
+                    put('<div class="cg-none" style="margin-top:.9rem">No configured check fired for this group.</div>')
+            else:
+                put(findings_html(seg.findings))
+    put('<ul class="cg-notes">' + "".join(f"<li>{e(n)}</li>" for n in res.notes) + "</ul>")
+
+
+# --------------------------------------------------------------------------- batch tab
+
+BATCH_LIMIT = 2000
+TEMPLATE_CSV = ("id,original,rewritten,expected_drift\n"
+                "1,Candidates must submit the form before Friday.,Candidates may submit the form before Friday.,1\n"
+                "2,Submit the application before 15 November.,The application must be submitted before 15 November.,0\n")
+
+
+def _column(df: pd.DataFrame, *names: str) -> str | None:
+    lower = {c.lower().strip(): c for c in df.columns}
+    return next((lower[n] for n in names if n in lower), None)
+
+
+@st.cache_data(show_spinner=False, max_entries=8)
+def run_batch(pairs: tuple[tuple[str, str, str], ...]) -> pd.DataFrame:
+    rows = []
+    for pid, o, r in pairs:
+        res = analyze(o, r)
+        c = res.severity_counts()
+        rows.append({"id": pid, "status": res.status.value, "high": c["HIGH"], "medium": c["MEDIUM"],
+                     "review": c["REVIEW"], "drift": int(res.has_drift()),
+                     "categories": ", ".join(sorted(res.predicted_categories())),
+                     "rules": ", ".join(f.rule_id for f in res.findings), "original": o, "rewritten": r})
+    return pd.DataFrame(rows)
+
+
+def _use_benchmark() -> None:
+    st.session_state["batch_source"] = "benchmark"
+
+
+def batch_tab() -> None:
+    put('<p class="cg-intro" style="margin-top:1rem">Audit many sentence pairs at once. Upload a CSV with an '
+        '<code>original</code> and a <code>rewritten</code> column (optionally <code>id</code> and '
+        '<code>expected_drift</code> as 0/1 to score the detector against your own labels).</p>')
+    up, bench, tmpl = st.columns([2.6, 1.4, 1.2], vertical_alignment="bottom")
+    with up:
+        uploaded = st.file_uploader("CSV file", type=["csv"], label_visibility="collapsed")
+    with bench:
+        st.button("Use bundled benchmark", width="stretch", on_click=_use_benchmark,
+                  help=f"Runs all pairs in data/benchmark.csv")
+    with tmpl:
+        st.download_button("CSV template", data=TEMPLATE_CSV, file_name="clauseguard-template.csv",
+                           mime="text/csv", width="stretch", icon=":material/download:")
+
+    if uploaded is not None:
+        st.session_state["batch_source"] = "upload"
+        try:
+            df = pd.read_csv(uploaded, keep_default_na=False)
+        except Exception as exc:  # malformed CSV
+            put(f'<div class="cg-none">Could not read the CSV file: {e(str(exc))}</div>')
+            return
+        source = e(uploaded.name)
+    elif st.session_state.get("batch_source") == "benchmark":
+        df = pd.read_csv(ROOT / "data" / "benchmark.csv", keep_default_na=False)
+        source = "data/benchmark.csv"
+    else:
+        return
+
+    o_col = _column(df, "original", "original_text", "source")
+    r_col = _column(df, "rewritten", "rewritten_text", "rewrite", "summary")
+    if o_col is None or r_col is None:
+        put('<div class="cg-none">The CSV needs an <code>original</code> and a <code>rewritten</code> column. '
+            'Download the template for the expected format.</div>')
+        return
+    if len(df) > BATCH_LIMIT:
+        put(f'<p class="cg-stale">Only the first {BATCH_LIMIT} rows are analysed.</p>')
+        df = df.head(BATCH_LIMIT)
+    id_col = _column(df, "id", "example_id")
+    ids = df[id_col].astype(str) if id_col else pd.Series(range(1, len(df) + 1)).astype(str)
+    pairs = tuple(zip(ids, df[o_col].astype(str), df[r_col].astype(str)))
+    with st.spinner(f"Analysing {len(pairs)} pairs…"):
+        out = run_batch(pairs)
+
+    counts = out["status"].value_counts()
+    section("Summary", f"{len(out)} pairs from {source}")
+    status_rows = "".join(
+        f"<tr><td>{e(sv.value)}</td><td class='num'>{int(counts.get(sv.value, 0))}</td>"
+        f"<td class='num'>{_bar(counts.get(sv.value, 0) / len(out))}{counts.get(sv.value, 0) / len(out):.0%}</td></tr>"
+        for sv in Status)
+    status_table = ("<div class='cg-tablewrap'><table class='cg-table'><thead><tr><th>Status</th><th class='num'>Pairs</th>"
+                    "<th class='num'>Share</th></tr></thead><tbody>" + status_rows + "</tbody></table></div>")
+
+    gold_col = _column(df, "expected_drift", "label", "drift")
+    gold = pd.to_numeric(df[gold_col], errors="coerce") if gold_col else None
+    if gold is not None and gold.notna().all() and set(gold.unique()) <= {0, 1}:
+        g, pr = gold.astype(int).to_numpy(), out["drift"].to_numpy()
+        m = prf(int(((g == 1) & (pr == 1)).sum()), int(((g == 0) & (pr == 1)).sum()),
+                int(((g == 1) & (pr == 0)).sum()), int(((g == 0) & (pr == 0)).sum()))
+        c1, c2 = st.columns([1.2, 1], gap="large")
+        with c1:
+            put(status_table)
+            put(f"<p class='cg-prov'>Scored against <code>{e(gold_col)}</code>: precision {_pct(m['precision'])} · "
+                f"recall {_pct(m['recall'])} · F1 {_pct(m['f1'])} · accuracy {_pct(m['accuracy'])}</p>")
+        with c2:
+            put(confusion(m))
+    else:
+        put(status_table)
+
+    section("Results", "Select a row to inspect it")
+    show = st.segmented_control("Show", ["All", "Drift", "Review", "None"], default="All",
+                                key="batch_filter", label_visibility="collapsed")
+    view = out
+    if show == "Drift":
+        view = out[out["status"] == Status.DRIFT.value]
+    elif show == "Review":
+        view = out[out["status"] == Status.REVIEW.value]
+    elif show == "None":
+        view = out[out["status"] == Status.NONE.value]
+    event = st.dataframe(
+        view[["id", "status", "high", "medium", "review", "categories", "original", "rewritten", "rules"]],
+        hide_index=True, width="stretch", height=380, on_select="rerun", selection_mode="single-row",
+        column_config={
+            "id": st.column_config.TextColumn("ID", width="small"),
+            "status": st.column_config.TextColumn("Status", width="medium"),
+            "high": st.column_config.NumberColumn("High", width="small"),
+            "medium": st.column_config.NumberColumn("Med.", width="small"),
+            "review": st.column_config.NumberColumn("Rev.", width="small"),
+            "categories": st.column_config.TextColumn("Categories"),
+            "original": st.column_config.TextColumn("Original", width="large"),
+            "rewritten": st.column_config.TextColumn("Rewritten", width="large"),
+            "rules": st.column_config.TextColumn("Rules"),
+        })
+    st.download_button("Download results CSV", data=out.to_csv(index=False), file_name="clauseguard-batch.csv",
+                       mime="text/csv", icon=":material/download:")
+
+    selected = event.selection.rows if event and event.selection else []
+    if selected:
+        row = view.iloc[selected[0]]
+        section(f"Pair {row['id']}", "Re-analysed with the same engine")
+        render_result(analyze(row["original"], row["rewritten"]))
 
 
 # --------------------------------------------------------------------------- benchmark tab
@@ -639,6 +951,20 @@ def method_tab() -> None:
       <li><b>Report</b><span>Findings are sorted by severity; the overall status is derived from the most severe one.</span></li>
     </ol>""")
 
+    section("Passage mode")
+    put("""<p class="cg-prose">For paragraphs, the text is first split into sentences (line breaks and bullets also
+    separate items; abbreviations such as <code>Rs.</code>, <code>No.</code> and <code>p.m.</code> do not). Each sentence
+    is linked to its most similar sentence on the other side, using the mean of the Jaccard overlap and the overlap
+    coefficient of content-word stems (threshold 0.3). Linked sentences form groups, so merged and split sentences
+    are compared together. Unlinked sentences are reported as dropped or added: MEDIUM if they contain rule markers
+    or values, otherwise REVIEW. <code>src/passage.py</code></p>""")
+
+    section("Command line")
+    put("""<p class="cg-prose">The same engine runs without the UI:
+    <code>python -m src "original" "rewrite"</code>, with <code>--json</code> or <code>--markdown</code> for
+    structured output and <code>--passage file1.txt file2.txt</code> for paragraphs. The exit code is 0 (no checks
+    triggered), 1 (potential drift) or 2 (review only), so it can be used in scripts.</p>""")
+
     section("Severity")
     rows = "".join(f"<tr><td><span class='cg-pill sev-{k.lower()}'>{k.title()}</span></td><td>{e(v)}</td></tr>"
                    for k, v in SEVERITY_POLICY.items())
@@ -652,20 +978,30 @@ def method_tab() -> None:
       <li>Changes of subject, object or actor (<i>students</i> → <i>staff</i>) and changes to ordinary content words.</li>
       <li>Conjunctions and logical structure (<i>and</i> → <i>or</i>, <i>either … or</i>), and which clause a marker belongs to.</li>
       <li>Synonyms and antonyms outside its small lexicon (<i>closed</i>/<i>open</i> is listed; most pairs are not).</li>
-      <li>Ranges (<i>three to five</i>), unit conversions (<i>one week</i> vs <i>7 days</i>) and relative dates.</li>
+      <li>Ranges (<i>three to five</i>), month/year conversions and relative dates (<i>next Monday</i>). Exact conversions between minutes, hours, days and weeks are recognised.</li>
       <li>Ability vs permission (<i>can</i>), epistemic vs deontic <i>may</i>, and future <i>will</i>.</li>
-      <li>Long passages: it is designed for one sentence or a short instruction at a time.</li>
+      <li>Paragraph structure beyond sentence alignment: in the Passage tab, sentences are paired by shared vocabulary, so a heavily reworded sentence can be reported as dropped and re-added.</li>
     </ul>""")
+
+
+def footer() -> None:
+    put(f'<div class="cg-foot"><span>ClauseGuard · rule-based NLP · engine <code>{e(ENGINE_VERSION)}</code> · '
+        'no external API</span><span>Warnings are review recommendations, not proof of a change in meaning.</span></div>')
 
 
 # --------------------------------------------------------------------------- page
 
 put(CSS)
 masthead()
-compare, bench, method = st.tabs(["Compare", "Benchmark", "Method & limits"])
+compare, passage, batch, bench, method = st.tabs(["Compare", "Passage", "Batch audit", "Benchmark", "Method & limits"])
 with compare:
     compare_tab()
+with passage:
+    passage_tab()
+with batch:
+    batch_tab()
 with bench:
     benchmark_tab()
 with method:
     method_tab()
+footer()

@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.0"
 
 # The five linguistic categories ClauseGuard checks. Findings outside these
 # categories (e.g. "coverage", "input") are informational REVIEW notes.

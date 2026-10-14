@@ -138,8 +138,19 @@ def extract_negation(text: str, tokens: list[Token]) -> list[Marker]:
     return with_focus
 
 
+def _clause_start(tokens: list[Token]) -> list[Token]:
+    """Tokens where the main clause starts. Usually the sentence start, but after
+    a fronted adverbial clause ('If you are absent, inform the HOD') it is the
+    first word after the comma."""
+    if tokens and tokens[0].lower in lx.FRONTED_CLAUSE_STARTERS:
+        for i, tok in enumerate(tokens):
+            if tok.text == ",":
+                return tokens[i + 1:]
+    return tokens
+
+
 def _imperative_marker(text: str, tokens: list[Token]) -> Marker | None:
-    words = [t for t in tokens if t.text[0].isalpha()]
+    words = [t for t in _clause_start(tokens) if t.text[0].isalpha()]
     if words and words[0].lower in {"please", "kindly"}:
         words = words[1:]
     if not words or words[0].lower not in lx.IMPERATIVE_VERBS:
@@ -196,13 +207,19 @@ _DATE_MY = re.compile(r"\b(" + _MONTH_RE + r")\s+(\d{4})\b", re.IGNORECASE)
 _WEEKDAY = re.compile(r"\b(" + _WEEKDAY_RE + r")s?\b", re.IGNORECASE)
 _TIME_12 = re.compile(r"\b(\d{1,2})(?:[:.](\d{2}))?\s?([ap])\.?\s?m\b", re.IGNORECASE)
 _TIME_24 = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b(?:\s?(?:hrs|hours)\b)?", re.IGNORECASE)
+_TIME_MILITARY = re.compile(r"\b([01]\d|2[0-3])([0-5]\d)\s?(?:hrs|hours|h)\b", re.IGNORECASE)
 _TIME_WORD = re.compile(r"\b(noon|midday|midnight)\b", re.IGNORECASE)
 _PLAIN_NUMBER = re.compile(r"(?<![\w.])(" + _NUM + r")(?:st|nd|rd|th)?(?!\w)(?:\s+(" + lx.UNIT_REGEX + r"))?", re.IGNORECASE)
-_WORD_NUMBER_RE = (r"(" + "|".join(lx.NUMBER_WORDS) + r")(?:-(" + "|".join(list(lx.NUMBER_WORDS)[1:10]) + r"))?")
-_BOUNDED_WORD_NUMBER = re.compile(lx.BOUND_BEFORE_WORD_NUMBER + r"\b" + _WORD_NUMBER_RE + r"\b", re.IGNORECASE)
-_WORD_NUMBER = re.compile(
-    r"\b(" + "|".join(lx.NUMBER_WORDS) + r")(?:-(" + "|".join(list(lx.NUMBER_WORDS)[1:10]) + r"))?"
-    r"\s+(" + lx.UNIT_REGEX + r")", re.IGNORECASE)
+_TENS = ("twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+_UNITS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
+# One capture group for the whole number word: 'seventy-five', 'seventy five' or 'twelve'.
+_WORD_NUMBER_RE = (r"((?:" + "|".join(_TENS) + r")[-\s](?:" + "|".join(_UNITS) + r")"
+                   r"|(?:" + "|".join(sorted(lx.NUMBER_WORDS, key=len, reverse=True)) + r"))\b")
+_BOUNDED_WORD_NUMBER = re.compile(lx.BOUND_BEFORE_WORD_NUMBER + r"\b" + _WORD_NUMBER_RE, re.IGNORECASE)
+_WORD_PERCENT = re.compile(r"\b" + _WORD_NUMBER_RE + r"\s?(?:percent|per\s?cent)\b", re.IGNORECASE)
+_WORD_NUMBER = re.compile(r"\b" + _WORD_NUMBER_RE + r"\s+(" + lx.UNIT_REGEX + r")", re.IGNORECASE)
+_WORD_PERCENT = re.compile(r"\b" + _WORD_NUMBER_RE + r"\s?(?:percent|per\s?cent)\b", re.IGNORECASE)
+_WORD_NUMBER = re.compile(r"\b" + _WORD_NUMBER_RE + r"\s+(" + lx.UNIT_REGEX + r")", re.IGNORECASE)
 
 
 class _Span:
@@ -213,6 +230,11 @@ class _Span:
 
     def span(self, group: int = 0) -> tuple[int, int]:
         return self._span
+
+
+def _word_value(raw: str) -> float:
+    """'seventy-five' -> 75.0, 'twelve' -> 12.0"""
+    return float(sum(lx.NUMBER_WORDS[w] for w in re.split(r"[-\s]+", raw.lower())))
 
 
 def _to_float(raw: str) -> float:
@@ -311,6 +333,9 @@ def extract_numbers(text: str) -> list[NumericValue]:
     for m in _TIME_24.finditer(text):
         hour, minute = int(m.group(1)), int(m.group(2))
         add(m, "time", hour * 60 + minute, None, f"time:{hour:02d}:{minute:02d}")
+    for m in _TIME_MILITARY.finditer(text):  # '0900 hrs'
+        hour, minute = int(m.group(1)), int(m.group(2))
+        add(m, "time", hour * 60 + minute, None, f"time:{hour:02d}:{minute:02d}")
     for m in _TIME_WORD.finditer(text):
         hour = 0 if m.group(1).lower() == "midnight" else 12
         add(m, "time", hour * 60, None, f"time:{hour:02d}:00")
@@ -318,15 +343,17 @@ def extract_numbers(text: str) -> list[NumericValue]:
     for m in _PLAIN_NUMBER.finditer(text):
         value, unit = _to_float(m.group(1)), _unit(m.group(2))
         add(m, "number", value, unit, f"number:{_fmt(value)}" + (f" {unit}" if unit else ""))
+    for m in _WORD_PERCENT.finditer(text):  # 'seventy-five percent'
+        value = _word_value(m.group(1))
+        add(m, "percent", value, "%", f"percent:{_fmt(value)}")
     for m in _WORD_NUMBER.finditer(text):
-        value = lx.NUMBER_WORDS[m.group(1).lower()] + (lx.NUMBER_WORDS[m.group(2).lower()] if m.group(2) else 0)
-        unit = _unit(m.group(3))
-        add(m, "number", float(value), unit, f"number:{_fmt(value)} {unit}")
+        value = _word_value(m.group(1))
+        unit = _unit(m.group(2))
+        add(m, "number", value, unit, f"number:{_fmt(value)} {unit}")
     for m in _BOUNDED_WORD_NUMBER.finditer(text):
         # Only the number word is the value; the bound itself is a quantifier marker.
-        value = lx.NUMBER_WORDS[m.group(1).lower()] + (lx.NUMBER_WORDS[m.group(2).lower()] if m.group(2) else 0)
-        span_end = m.end(2) if m.group(2) else m.end(1)
-        add(_Span(m.start(1), span_end), "number", float(value), None, f"number:{_fmt(value)}")
+        value = _word_value(m.group(1))
+        add(_Span(m.start(1), m.end(1)), "number", value, None, f"number:{_fmt(value)}")
 
     return sorted(found, key=lambda n: n.start)
 
