@@ -1,0 +1,534 @@
+{
+  "generated_at": "2026-10-14T12:00:05+00:00",
+  "engine_version": "1.0.0",
+  "dataset": "data/benchmark.csv",
+  "dataset_sha256": "466c86284213b20cee42aae078e3ed05782de7b2b28c7478e68fe58fa1b763ba",
+  "matching_definition": {
+    "pair_level": "predicted drift = at least one HIGH or MEDIUM finding",
+    "pair_level_strict": "predicted drift = at least one finding of any severity (incl. REVIEW)",
+    "category_level": "category predicted = at least one HIGH/MEDIUM finding in that category; counted once per pair"
+  },
+  "splits": {
+    "dev": {
+      "pairs": 87,
+      "pair_level": {
+        "tp": 52,
+        "fp": 1,
+        "fn": 2,
+        "precision": 0.9811,
+        "recall": 0.963,
+        "f1": 0.972,
+        "tn": 32,
+        "accuracy": 0.9655
+      },
+      "pair_level_strict": {
+        "tp": 52,
+        "fp": 11,
+        "fn": 2,
+        "precision": 0.8254,
+        "recall": 0.963,
+        "f1": 0.8889,
+        "tn": 22,
+        "accuracy": 0.8506
+      },
+      "category_level": {
+        "negation": {
+          "tp": 11,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 11
+        },
+        "modality": {
+          "tp": 17,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 17
+        },
+        "condition": {
+          "tp": 7,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 7
+        },
+        "quantifier": {
+          "tp": 7,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.875,
+          "recall": 1.0,
+          "f1": 0.9333,
+          "support": 7
+        },
+        "numeric": {
+          "tp": 18,
+          "fp": 0,
+          "fn": 0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 18
+        },
+        "micro_avg": {
+          "tp": 60,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9836,
+          "recall": 1.0,
+          "f1": 0.9917,
+          "support": 60
+        }
+      },
+      "by_mutation_type": {
+        "benign_paraphrase": {
+          "pairs": 32,
+          "flagged_as_drift": 1,
+          "flag_rate": 0.0312
+        },
+        "condition_removed": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "condition_weakened": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "exception_removed": {
+          "pairs": 3,
+          "flagged_as_drift": 3,
+          "flag_rate": 1.0
+        },
+        "modality_strengthened": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "modality_weakened": {
+          "pairs": 7,
+          "flagged_as_drift": 7,
+          "flag_rate": 1.0
+        },
+        "negation_added": {
+          "pairs": 4,
+          "flagged_as_drift": 4,
+          "flag_rate": 1.0
+        },
+        "negation_removed": {
+          "pairs": 7,
+          "flagged_as_drift": 7,
+          "flag_rate": 1.0
+        },
+        "numeric_changed": {
+          "pairs": 18,
+          "flagged_as_drift": 18,
+          "flag_rate": 1.0
+        },
+        "out_of_scope": {
+          "pairs": 2,
+          "flagged_as_drift": 0,
+          "flag_rate": 0.0
+        },
+        "quantifier_changed": {
+          "pairs": 7,
+          "flagged_as_drift": 7,
+          "flag_rate": 1.0
+        },
+        "unchanged": {
+          "pairs": 1,
+          "flagged_as_drift": 0,
+          "flag_rate": 0.0
+        }
+      }
+    },
+    "test": {
+      "pairs": 65,
+      "pair_level": {
+        "tp": 39,
+        "fp": 5,
+        "fn": 0,
+        "precision": 0.8864,
+        "recall": 1.0,
+        "f1": 0.9398,
+        "tn": 21,
+        "accuracy": 0.9231
+      },
+      "pair_level_strict": {
+        "tp": 39,
+        "fp": 9,
+        "fn": 0,
+        "precision": 0.8125,
+        "recall": 1.0,
+        "f1": 0.8966,
+        "tn": 17,
+        "accuracy": 0.8615
+      },
+      "category_level": {
+        "negation": {
+          "tp": 6,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.8571,
+          "recall": 1.0,
+          "f1": 0.9231,
+          "support": 6
+        },
+        "modality": {
+          "tp": 8,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.8889,
+          "recall": 1.0,
+          "f1": 0.9412,
+          "support": 8
+        },
+        "condition": {
+          "tp": 3,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.75,
+          "recall": 1.0,
+          "f1": 0.8571,
+          "support": 3
+        },
+        "quantifier": {
+          "tp": 18,
+          "fp": 2,
+          "fn": 0,
+          "precision": 0.9,
+          "recall": 1.0,
+          "f1": 0.9474,
+          "support": 18
+        },
+        "numeric": {
+          "tp": 10,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9091,
+          "recall": 1.0,
+          "f1": 0.9524,
+          "support": 10
+        },
+        "micro_avg": {
+          "tp": 45,
+          "fp": 6,
+          "fn": 0,
+          "precision": 0.8824,
+          "recall": 1.0,
+          "f1": 0.9375,
+          "support": 45
+        }
+      },
+      "by_mutation_type": {
+        "benign_paraphrase": {
+          "pairs": 22,
+          "flagged_as_drift": 5,
+          "flag_rate": 0.2273
+        },
+        "condition_removed": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "exception_removed": {
+          "pairs": 1,
+          "flagged_as_drift": 1,
+          "flag_rate": 1.0
+        },
+        "modality_strengthened": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "modality_weakened": {
+          "pairs": 3,
+          "flagged_as_drift": 3,
+          "flag_rate": 1.0
+        },
+        "negation_added": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "negation_removed": {
+          "pairs": 4,
+          "flagged_as_drift": 4,
+          "flag_rate": 1.0
+        },
+        "numeric_changed": {
+          "pairs": 9,
+          "flagged_as_drift": 9,
+          "flag_rate": 1.0
+        },
+        "quantifier_changed": {
+          "pairs": 13,
+          "flagged_as_drift": 13,
+          "flag_rate": 1.0
+        },
+        "quantifier_removed": {
+          "pairs": 3,
+          "flagged_as_drift": 3,
+          "flag_rate": 1.0
+        },
+        "unchanged": {
+          "pairs": 4,
+          "flagged_as_drift": 0,
+          "flag_rate": 0.0
+        }
+      }
+    },
+    "all": {
+      "pairs": 152,
+      "pair_level": {
+        "tp": 91,
+        "fp": 6,
+        "fn": 2,
+        "precision": 0.9381,
+        "recall": 0.9785,
+        "f1": 0.9579,
+        "tn": 53,
+        "accuracy": 0.9474
+      },
+      "pair_level_strict": {
+        "tp": 91,
+        "fp": 20,
+        "fn": 2,
+        "precision": 0.8198,
+        "recall": 0.9785,
+        "f1": 0.8921,
+        "tn": 39,
+        "accuracy": 0.8553
+      },
+      "category_level": {
+        "negation": {
+          "tp": 17,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9444,
+          "recall": 1.0,
+          "f1": 0.9714,
+          "support": 17
+        },
+        "modality": {
+          "tp": 25,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9615,
+          "recall": 1.0,
+          "f1": 0.9804,
+          "support": 25
+        },
+        "condition": {
+          "tp": 10,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9091,
+          "recall": 1.0,
+          "f1": 0.9524,
+          "support": 10
+        },
+        "quantifier": {
+          "tp": 25,
+          "fp": 3,
+          "fn": 0,
+          "precision": 0.8929,
+          "recall": 1.0,
+          "f1": 0.9434,
+          "support": 25
+        },
+        "numeric": {
+          "tp": 28,
+          "fp": 1,
+          "fn": 0,
+          "precision": 0.9655,
+          "recall": 1.0,
+          "f1": 0.9824,
+          "support": 28
+        },
+        "micro_avg": {
+          "tp": 105,
+          "fp": 7,
+          "fn": 0,
+          "precision": 0.9375,
+          "recall": 1.0,
+          "f1": 0.9677,
+          "support": 105
+        }
+      },
+      "by_mutation_type": {
+        "benign_paraphrase": {
+          "pairs": 54,
+          "flagged_as_drift": 6,
+          "flag_rate": 0.1111
+        },
+        "condition_removed": {
+          "pairs": 4,
+          "flagged_as_drift": 4,
+          "flag_rate": 1.0
+        },
+        "condition_weakened": {
+          "pairs": 2,
+          "flagged_as_drift": 2,
+          "flag_rate": 1.0
+        },
+        "exception_removed": {
+          "pairs": 4,
+          "flagged_as_drift": 4,
+          "flag_rate": 1.0
+        },
+        "modality_strengthened": {
+          "pairs": 4,
+          "flagged_as_drift": 4,
+          "flag_rate": 1.0
+        },
+        "modality_weakened": {
+          "pairs": 10,
+          "flagged_as_drift": 10,
+          "flag_rate": 1.0
+        },
+        "negation_added": {
+          "pairs": 6,
+          "flagged_as_drift": 6,
+          "flag_rate": 1.0
+        },
+        "negation_removed": {
+          "pairs": 11,
+          "flagged_as_drift": 11,
+          "flag_rate": 1.0
+        },
+        "numeric_changed": {
+          "pairs": 27,
+          "flagged_as_drift": 27,
+          "flag_rate": 1.0
+        },
+        "out_of_scope": {
+          "pairs": 2,
+          "flagged_as_drift": 0,
+          "flag_rate": 0.0
+        },
+        "quantifier_changed": {
+          "pairs": 20,
+          "flagged_as_drift": 20,
+          "flag_rate": 1.0
+        },
+        "quantifier_removed": {
+          "pairs": 3,
+          "flagged_as_drift": 3,
+          "flag_rate": 1.0
+        },
+        "unchanged": {
+          "pairs": 5,
+          "flagged_as_drift": 0,
+          "flag_rate": 0.0
+        }
+      }
+    }
+  },
+  "errors": [
+    {
+      "example_id": "B17-3",
+      "split": "test",
+      "original_text": "Students may use the computer lab after 6 pm if they have written permission.",
+      "rewritten_text": "Provided they have written permission, students can use the computer lab after 6 pm.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "condition",
+      "mutation_type": "benign_paraphrase",
+      "findings": "HIGH:COND-CONDITION-REMOVED"
+    },
+    {
+      "example_id": "B24-3",
+      "split": "test",
+      "original_text": "Research scholars need not attend the orientation programme.",
+      "rewritten_text": "Attending the orientation programme is optional for research scholars.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "negation",
+      "mutation_type": "benign_paraphrase",
+      "findings": "HIGH:NEG-REMOVED"
+    },
+    {
+      "example_id": "B29-2",
+      "split": "test",
+      "original_text": "The deadline for fee payment is 30 June 2025.",
+      "rewritten_text": "Fee payment is due by 30/06/2025.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "quantifier",
+      "mutation_type": "benign_paraphrase",
+      "findings": "MEDIUM:QNT-ADDED"
+    },
+    {
+      "example_id": "B34-3",
+      "split": "test",
+      "original_text": "Each team must have at least three and at most five members.",
+      "rewritten_text": "Every team must consist of three to five members.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "numeric|quantifier",
+      "mutation_type": "benign_paraphrase",
+      "findings": "HIGH:NUM-MISSING; MEDIUM:QNT-REMOVED; MEDIUM:QNT-REMOVED"
+    },
+    {
+      "example_id": "B36-3",
+      "split": "dev",
+      "original_text": "Candidates must report to the examination centre at least 30 minutes before the exam starts.",
+      "rewritten_text": "Candidates have to reach the exam centre no later than 30 minutes before the start of the exam.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "quantifier",
+      "mutation_type": "benign_paraphrase",
+      "findings": "MEDIUM:QNT-ADDED; MEDIUM:QNT-REMOVED"
+    },
+    {
+      "example_id": "B44-3",
+      "split": "test",
+      "original_text": "A minimum CGPA of 7.0 is required to apply for the exchange programme.",
+      "rewritten_text": "Applicants for the exchange programme need a CGPA of at least 7.0.",
+      "expected_drift": 0,
+      "expected_categories": "",
+      "predicted_drift": 1,
+      "predicted_categories": "modality",
+      "mutation_type": "benign_paraphrase",
+      "findings": "MEDIUM:MOD-REMOVED"
+    },
+    {
+      "example_id": "B45-1",
+      "split": "dev",
+      "original_text": "Leave applications must be approved by the class advisor and the HOD.",
+      "rewritten_text": "Leave applications must be approved by the class advisor or the HOD.",
+      "expected_drift": 1,
+      "expected_categories": "other",
+      "predicted_drift": 0,
+      "predicted_categories": "",
+      "mutation_type": "out_of_scope",
+      "findings": ""
+    },
+    {
+      "example_id": "B51-1",
+      "split": "dev",
+      "original_text": "Students must submit both the assignment and the lab record.",
+      "rewritten_text": "Students must submit either the assignment or the lab record.",
+      "expected_drift": 1,
+      "expected_categories": "other",
+      "predicted_drift": 0,
+      "predicted_categories": "",
+      "mutation_type": "out_of_scope",
+      "findings": ""
+    }
+  ]
+}

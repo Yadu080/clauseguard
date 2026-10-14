@@ -1,0 +1,50 @@
+[
+  {
+    "id": "A",
+    "title": "Missing exception",
+    "original": "Students below 75% attendance cannot appear for the examination unless the HOD approves.",
+    "rewritten": "Students below 75% attendance cannot appear for the examination."
+  },
+  {
+    "id": "B",
+    "title": "Changed threshold",
+    "original": "Applicants must have at least 75% attendance.",
+    "rewritten": "Applicants must have at least 70% attendance."
+  },
+  {
+    "id": "C",
+    "title": "Obligation weakened",
+    "original": "Candidates must submit the form before Friday.",
+    "rewritten": "Candidates may submit the form before Friday."
+  },
+  {
+    "id": "D",
+    "title": "Negation changed",
+    "original": "Students who have not paid the fee are ineligible.",
+    "rewritten": "Students who have paid the fee are ineligible."
+  },
+  {
+    "id": "E",
+    "title": "No configured discrepancy",
+    "original": "Submit the application before 15 November.",
+    "rewritten": "The application must be submitted before 15 November."
+  },
+  {
+    "id": "F",
+    "title": "Exception rephrased (review only)",
+    "original": "Students cannot enter the laboratory unless the instructor approves.",
+    "rewritten": "Students cannot enter the laboratory without the instructor's approval."
+  },
+  {
+    "id": "G",
+    "title": "Several changes at once",
+    "original": "Only final-year students may apply for the internship before 30 June 2025, provided their CGPA is at least 7.5.",
+    "rewritten": "All students must apply for the internship after 30 June 2025."
+  },
+  {
+    "id": "H",
+    "title": "Known limitation: 'and' vs 'or'",
+    "original": "Leave applications must be approved by the class advisor and the HOD.",
+    "rewritten": "Leave applications must be approved by the class advisor or the HOD."
+  }
+]
